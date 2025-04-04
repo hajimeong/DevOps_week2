@@ -1,0 +1,36 @@
+name: build and deploy tetris
+
+on:
+  push:
+    branches: ["master"]
+
+permission:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Docker build & push to docker repo
+        run: |
+          docker login -u ${{secrets.DOCKER_USERNAME}} -p ${{secrets.DOCKER_PASSWORD}}
+          docker build -t ${{secrets.DOCKER_REPO}}/tetris .
+          docker push ${{secrets.DOCKER_REPO}}/tetris:latest
+
+      - name: Deploy to server
+        uses: appleboy/ssh-action@master
+        id: deploy
+        with:
+          host: ${{secrets.HOST}}
+          username: ubuntu
+          key: ${{secrets.KEY}}
+
+          script: |
+            sudo docker rm -f $(sudo docker ps -qa)
+
+            sudo docker pull ${{secrets.DOCKER_REPO}}/tetris:latest
+
+            sudo docker run -d --name tetris -p 8080:8888 ${{secrets.DOCKER_REPO}}/tetris
